@@ -57,16 +57,6 @@ class Voc:
 	def indicesFromSentence(self, sentence):
 		return [self.word2index[word] for word in sentence.split(' ')] + [EOS_token]
 
-def readVocs(datafile, sanitize):
-	print("Reading lines...")
-	# Read the file and split into lines
-	lines = open(datafile, encoding='utf-8').\
-		read().strip().split('\n')
-	# Split every line into pairs and normalize
-	pairs = [[sanitize(s) for s in l.split('\t')] for l in lines]
-	voc = Voc()
-	return voc, pairs
-
 def filterPair(p, max_length):
 	return len(p[0].split(' ')) < max_length and len(p[1].split(' ')) < max_length 
 
@@ -101,13 +91,11 @@ def trimRareWords(voc, pairs, MIN_COUNT):
 	print("Trimmed from {} pairs to {}, {:.4f} of total".format(len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
 	return keep_pairs
 
-def loadPrepareData(datafile, max_length, min_count, sanitize):
-	print("Start preparing training data ...")
-	voc, pairs = readVocs(datafile, sanitize)
-	print("Read {!s} sentence pairs".format(len(pairs)))
+def loadPrepareData(pairs, max_length, min_count):
 	pairs = filterPairs(pairs, max_length)
 	print("Trimmed to {!s} sentence pairs".format(len(pairs)))
 	print("Counting words...")
+	voc = Voc()
 	for pair in pairs:
 		voc.addSentence(pair[0])
 		voc.addSentence(pair[1])
@@ -157,25 +145,12 @@ def batch2TrainData(voc, pair_batch):
 	output, mask, max_target_len = outputVar(output_batch, voc)
 	return inp, lengths, output, mask, max_target_len
 
-class TextDataset():
-	def __init__(self, datafile, max_length, min_count, sanitize):
-		self.voc, self.pairs = loadPrepareData(datafile, max_length, min_count, sanitize)
-
-	def __len__(self):
-		return len(self.pairs)
-
-	def __getitem__(self, idx):
-		return self.pairs[idx]
-
-	def getVoc(self):
-		return self.voc
-
 class TextDataloader():
-	def __init__(self, dataset, batch_size, shuffle=True):
-		self.dataset = dataset
+	def __init__(self, dataset, max_length, min_count, batch_size, shuffle=True):
+		self.voc, self.pairs = loadPrepareData(dataset, max_length, min_count)
 		self.batch_size = batch_size
 
-		self.indices = [i for i in range(len(self.dataset))]
+		self.indices = [i for i in range(len(self.pairs))]
 		if shuffle:
 			random.shuffle(self.indices)
 
@@ -187,6 +162,9 @@ class TextDataloader():
 			indices = self.indices[i * self.batch_size : (i + 1) * self.batch_size]
 			batch = []
 			for ind in indices:
-				batch.append(self.dataset[ind])
-			trainData = batch2TrainData(self.dataset.getVoc(), batch)
+				batch.append(self.pairs[ind])
+			trainData = batch2TrainData(self.voc, batch)
 			yield trainData
+
+	def getVoc(self):
+		return self.voc

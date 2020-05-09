@@ -1,8 +1,6 @@
 import os
 import codecs
-import csv
 
-from . import common
 from . import utils
 
 def loadLines(fileName, fields):
@@ -35,34 +33,22 @@ def loadConversations(fileName, lines, fields):
 			conversations.append(convObj)
 	return conversations
 
-def extractSentencePairs(conversations):
-	qa_pairs = []
+def loadCornellDataset(path):
+	MOVIE_LINES_FIELDS = ["lineID", "characterID", "movieID", "character", "text"]
+	MOVIE_CONVERSATIONS_FIELDS = ["character1ID", "character2ID", "movieID", "utteranceIDs"]
+
+	lines = loadLines(os.path.join(path, 'movie_lines.txt'), MOVIE_LINES_FIELDS)
+	conversations = loadConversations(os.path.join(path, "movie_conversations.txt"), lines, MOVIE_CONVERSATIONS_FIELDS)
+
+	pairs = []
 	for conversation in conversations:
-		# Iterate over all the lines of the conversation
-		for i in range(len(conversation["lines"]) - 1):  # We ignore the last line (no answer for it)
+		for i in range(len(conversation["lines"]) - 1):
 			inputLine = conversation["lines"][i]["text"].strip()
 			targetLine = conversation["lines"][i+1]["text"].strip()
-			# Filter wrong samples (if one of the lists is empty)
 			if inputLine and targetLine:
-				qa_pairs.append([inputLine, targetLine])
-	return qa_pairs
+				pairs.append([inputLine, targetLine])
 
-class CornellDataset(common.TextDataset):
-	def __init__(self, path, max_length=10, min_count=3):
-		datafile = os.path.join(path, 'formatted_movie_lines.txt')
-		
-		if not os.path.exists(datafile):
-			MOVIE_LINES_FIELDS = ["lineID", "characterID", "movieID", "character", "text"]
-			MOVIE_CONVERSATIONS_FIELDS = ["character1ID", "character2ID", "movieID", "utteranceIDs"]
+	pairs = [[utils.normalizeString(s) for s in l] for l in pairs]
 
-			lines = loadLines(os.path.join(path, 'movie_lines.txt'), MOVIE_LINES_FIELDS)
-			conversations = loadConversations(os.path.join(path, "movie_conversations.txt"), lines, MOVIE_CONVERSATIONS_FIELDS)
-
-			delimiter = str(codecs.decode('\t', "unicode_escape"))
-			with open(datafile, 'w', encoding='utf-8') as outputfile:
-				writer = csv.writer(outputfile, delimiter=delimiter, lineterminator='\n')
-				for pair in extractSentencePairs(conversations):
-					writer.writerow(pair)
-
-		super().__init__(datafile, max_length, min_count, utils.normalizeString)
+	return pairs
 

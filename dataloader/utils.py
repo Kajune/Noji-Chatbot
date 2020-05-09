@@ -1,5 +1,8 @@
 import unicodedata
 import re
+import spacy
+
+nlp = spacy.load('ja_ginza')
 
 def unicodeToAscii(s):
 	return ''.join(
@@ -14,3 +17,13 @@ def normalizeString(s):
 	s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
 	s = re.sub(r"\s+", r" ", s).strip()
 	return s
+
+def normalizeJapaneseString(s):
+	doc = nlp(s)
+
+	ret = ''
+	for sent in doc.sents:
+		for token in sent:
+			ret += token.orth_ + ' '
+
+	return ret

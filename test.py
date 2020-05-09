@@ -2,6 +2,8 @@ import torch
 import argparse
 
 from dataloader.cornell import *
+from dataloader.convai2 import *
+from dataloader.nucc import *
 from dataloader.common import TextDataloader, PAD_token, SOS_token, EOS_token
 from dataloader import utils
 from model.seq2seq import Seq2SeqModel
@@ -15,9 +17,13 @@ args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-dataset = CornellDataset('data/cornell movie-dialogs corpus')
-voc = dataset.getVoc()
-dataloader = TextDataloader(dataset, args.batch_size, True)
+dataset = []
+#dataset.extend(loadCornellDataset('data/cornell movie-dialogs corpus'))
+#dataset.extend(loadConvAI2Dataset('data/ConvAI2'))
+dataset.extend(loadNUCCDataset('data/nucc'))
+
+dataloader = TextDataloader(dataset, max_length=32, min_count=3, batch_size=args.batch_size, shuffle=True)
+voc = dataloader.getVoc()
 
 model = Seq2SeqModel(device, SOS_token, voc.num_words).to(device)
 
@@ -60,7 +66,7 @@ def evaluateInput(model, voc):
 		try:
 			input_sentence = input('> ')
 			if input_sentence == 'q' or input_sentence == 'quit': break
-			input_sentence = utils.normalizeString(input_sentence)
+			input_sentence = utils.normalizeJapaneseString(input_sentence)
 			output_words = evaluate(model, voc, input_sentence)
 			output_words[:] = [x for x in output_words if not (x == 'EOS' or x == 'PAD')]
 			print('Bot:', ' '.join(output_words))
